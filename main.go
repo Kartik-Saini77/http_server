@@ -3,34 +3,59 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"log"
-	"os"
+	"net"
 )
 
 func main() {
-	f, err := os.Open("message.txt")
+	listener, err := net.Listen("tcp", ":8080")
 	if err != nil {
-		log.Fatal("error : ", err)
+		log.Fatal("Error starting tcp server: ", err)
 	}
+	defer listener.Close()
+	log.Println("Server started on port 8080")
 
-	str := ""
 	for {
-		data := make([]byte, 8)
-		n, err := f.Read(data)
+		client, err := listener.Accept()
 		if err != nil {
-			break
+			log.Println("Error: ", err)
 		}
-
-		data = data[:n]
-		if i := bytes.IndexByte(data, '\n'); i != -1 {
-			str += string(data[:i])
-			data = data[i + 1:]
+		log.Println("Client connected: ", client.RemoteAddr().String())
+		ch := getLinesChannel(client)
+		for str := range ch {
 			fmt.Printf("read: %s\n", str)
-			str = ""
 		}
-		str += string(data)
 	}
-	if len(str) != 0 {
-		fmt.Printf("read: %s\n", str)
-	}
+}
+
+func getLinesChannel(f io.ReadCloser) <-chan string {
+	ch := make(chan string)
+
+	go func() {
+		defer close(ch)
+		defer f.Close()
+		str := ""
+		for {
+			data := make([]byte, 8)
+			n, err := f.Read(data)
+			if err != nil {
+				break
+			}
+
+			data = data[:n]
+			if i := bytes.IndexByte(data, '\n'); i != -1 {
+				str += string(data[:i])
+				data = data[i+1:]
+				ch <- str	
+				str = ""
+			}
+			str += string(data)
+		}
+		if len(str) != 0 {
+			ch <- str
+		}
+	}()
+
+	return ch
 }
