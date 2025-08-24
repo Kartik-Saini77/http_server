@@ -6,6 +6,8 @@ import (
 	"io"
 	"log"
 	"net"
+
+	"github.com/Kartik-Saini77/http_server/internal/request"
 )
 
 func main() {
@@ -22,10 +24,16 @@ func main() {
 			log.Println("Error: ", err)
 		}
 		log.Println("Client connected: ", client.RemoteAddr().String())
-		ch := getLinesChannel(client)
-		for str := range ch {
-			fmt.Printf("read: %s\n", str)
+
+		r, err := request.RequestFromReader(client)
+		if err != nil {
+			log.Println("Error: ", err)
 		}
+
+		fmt.Printf("Request line:\n")
+		fmt.Printf("- Method: %s\n", r.RequestLine.Method)
+		fmt.Printf("- Target: %s\n", r.RequestLine.RequestTarget)
+		fmt.Printf("- Version: %s\n", r.RequestLine.HTTPVersion)
 	}
 }
 
@@ -47,7 +55,7 @@ func getLinesChannel(f io.ReadCloser) <-chan string {
 			if i := bytes.IndexByte(data, '\n'); i != -1 {
 				str += string(data[:i])
 				data = data[i+1:]
-				ch <- str	
+				ch <- str
 				str = ""
 			}
 			str += string(data)
