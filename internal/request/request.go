@@ -40,7 +40,7 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 		}
 
 		bufLen += n
-		readN, err := request.parse(buf[:bufLen+n])
+		readN, err := request.Parse(buf[:bufLen+n])
 		if err != nil {
 			return nil, err
 		}
@@ -52,7 +52,7 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 	return request, nil
 }
 
-func (r *Request) parse(data []byte) (int, error) {
+func (r *Request) Parse(data []byte) (int, error) {
 	read := 0
 
 outer:
