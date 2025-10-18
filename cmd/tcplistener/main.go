@@ -34,6 +34,14 @@ func main() {
 		fmt.Printf("- Method: %s\n", r.RequestLine.Method)
 		fmt.Printf("- Target: %s\n", r.RequestLine.RequestTarget)
 		fmt.Printf("- Version: %s\n", r.RequestLine.HTTPVersion)
+		
+		fmt.Printf("\nHeaders:\n")
+		for header, value := range r.Headers {
+			fmt.Printf("- %s: %s\n", header, value)
+		}
+		
+		fmt.Printf("\nBody:\n")
+		fmt.Printf("%s\n", r.Body)
 	}
 }
 
