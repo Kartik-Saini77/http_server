@@ -19,6 +19,15 @@ func (h Headers) Get(key string) (value string, ok bool) {
 	return header, ok 
 }
 
+func (h Headers) Set(key, value string) {
+	key = strings.ToLower(key)
+	if val, ok := h[key]; ok {
+		h[key] = val + ", " + value
+	} else {
+		h[key] = value
+	}
+}
+
 func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 	idx := bytes.Index(data, []byte("\r\n"))
 	if idx == -1 {
@@ -50,12 +59,7 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 		return 0, false, errors.New("invalid header key")
 	}
 
-	key = strings.ToLower(key)
-	if val, ok := h[key]; ok {
-		h[key] = val + ", " + value
-	} else {
-		h[key] = value
-	}
+	h.Set(key, value)
 
 	return idx + 2, false, nil
 }
