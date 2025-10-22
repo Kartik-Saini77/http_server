@@ -10,15 +10,33 @@ import (
 
 type StatusCode int
 
+type Writer struct {
+	writer io.Writer
+}
+
 const (
 	OK                  StatusCode = 200
 	BadRequest          StatusCode = 400
 	InternalServerError StatusCode = 500
 )
 
-func WriteStatusLine(w io.Writer, statusCode StatusCode) error {
+func NewWriter(writer io.Writer) *Writer {
+	return &Writer{writer: writer}
+}
+
+func GetDefaultHeaders(contentLen int) headers.Headers {
+	headers := headers.NewHeaders()
+
+	headers.Set("Content-Length", fmt.Sprint(contentLen))
+	headers.Set("Connection", "close")
+	headers.Set("Content-Type", "text/html")
+
+	return headers
+}
+
+func (w *Writer) WriteStatusLine(statusCode StatusCode) error {
 	statusLine := fmt.Sprintf("HTTP/1.1 %d ", statusCode)
-	
+
 	switch statusCode {
 	case OK:
 		statusLine += "OK\r\n"
@@ -28,28 +46,22 @@ func WriteStatusLine(w io.Writer, statusCode StatusCode) error {
 		statusLine += "Internal Server Error\r\n"
 	}
 
-	_, err := w.Write([]byte(statusLine))
+	_, err := w.writer.Write([]byte(statusLine))
 
 	return err
 }
 
-func GetDefaultHeaders(contentLen int) headers.Headers {
-	headers := headers.NewHeaders()
-	
-	headers.Set("Content-Length", fmt.Sprint(contentLen))
-	headers.Set("Connection", "close")
-	headers.Set("Content-Type", "text/plain")
-
-	return headers
-}
-
-func WriteHeaders(w io.Writer, headers headers.Headers) error {
+func (w *Writer) WriteHeaders(headers headers.Headers) error {
 	for header, value := range headers {
-		_, err := fmt.Fprintf(w, "%s: %s\r\n", header, value)
+		_, err := fmt.Fprintf(w.writer, "%s: %s\r\n", header, value)
 		if err != nil {
 			return err
 		}
 	}
-	w.Write([]byte("\r\n"))
+	w.writer.Write([]byte("\r\n"))
 	return nil
+}
+
+func (w *Writer) WriteBody(p []byte) (int, error) {
+	return w.writer.Write(p)
 }

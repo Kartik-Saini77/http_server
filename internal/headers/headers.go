@@ -16,7 +16,7 @@ func NewHeaders() Headers {
 
 func (h Headers) Get(key string) (value string, ok bool) {
 	header, ok := h[strings.ToLower(key)]
-	return header, ok 
+	return header, ok
 }
 
 func (h Headers) Set(key, value string) {
@@ -26,6 +26,11 @@ func (h Headers) Set(key, value string) {
 	} else {
 		h[key] = value
 	}
+}
+
+func (h Headers) Replace(key, value string) {
+	key = strings.ToLower(key)
+	h[key] = value
 }
 
 func (h Headers) Parse(data []byte) (n int, done bool, err error) {
@@ -49,9 +54,9 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 	value := strings.TrimSpace(fieldLine[colonIdx+1:])
 
 	if strings.TrimSpace(key) != key {
-        return 0, false, errors.New("invalid field-line")
-    }
-	
+		return 0, false, errors.New("invalid field-line")
+	}
+
 	for _, r := range key {
 		if unicode.IsLetter(r) || unicode.IsDigit(r) || strings.ContainsRune("!#$%&'*+-.^_`|~", r) {
 			continue

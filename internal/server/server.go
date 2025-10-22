@@ -3,7 +3,6 @@ package server
 
 import (
 	"fmt"
-	"io"
 	"log"
 	"net"
 
@@ -12,26 +11,27 @@ import (
 )
 
 type Server struct {
-	port     int
 	listener net.Listener
+	handler  Handler
 	closed   bool
 }
 
 type HandlerError struct {
-	statusCode int
-	message    string
+	StatusCode response.StatusCode
+	Message    string
 }
 
-type Handler func(w io.Writer, req *request.Request) *HandlerError
+type Handler func(w *response.Writer, req *request.Request)
 
-func Serve(port int) (*Server, error) {
+func Serve(port int, handler Handler) (*Server, error) {
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		return nil, err
 	}
 	server := &Server{
-		port:     port,
 		listener: listener,
+		handler:  handler,
+		closed:   false,
 	}
 	go server.listen()
 
@@ -64,13 +64,15 @@ func (s *Server) listen() {
 
 func (s *Server) handle(conn net.Conn) {
 	defer conn.Close()
-	_, err := request.RequestFromReader(conn)
+
+	responseWriter := response.NewWriter(conn)
+	r, err := request.RequestFromReader(conn)
 	if err != nil {
-		log.Println("Error: ", err)
+		headers := response.GetDefaultHeaders(0)
+		responseWriter.WriteStatusLine(response.BadRequest)
+		responseWriter.WriteHeaders(headers)
+		return
 	}
 
-	response.WriteStatusLine(conn, 200)
-	headers := response.GetDefaultHeaders(13)
-	response.WriteHeaders(conn, headers)
-	conn.Write([]byte("Hello World!\n"))
+	s.handler(responseWriter, r)
 }
