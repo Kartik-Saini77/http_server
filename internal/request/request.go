@@ -127,7 +127,8 @@ outer:
 		case StateBody:
 			length := getInt(r.Headers, "content-length", 0)
 			if length == 0 {
-				panic("chunked not implemented")
+				r.state = StateDone
+				break outer
 			}
 			
 			remaining := min(length - len(r.Body), len(currentData))

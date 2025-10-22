@@ -1,12 +1,16 @@
 package main
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
+	"github.com/Kartik-Saini77/http_server/internal/headers"
 	"github.com/Kartik-Saini77/http_server/internal/request"
 	"github.com/Kartik-Saini77/http_server/internal/response"
 	"github.com/Kartik-Saini77/http_server/internal/server"
@@ -26,6 +30,57 @@ func main() {
 		} else if req.RequestLine.RequestTarget == "/myproblem" {
 			status = response.InternalServerError
 			body = respond500()
+		} else if req.RequestLine.RequestTarget == "/video" {
+			f, err := os.ReadFile("./video.mp4")
+			if err != nil {
+				log.Println("Error: ", err.Error())
+				body = respond500()
+				status = response.InternalServerError
+			} else {
+				h.Replace("Content-type", "video/mp4")
+				h.Replace("Content-length", fmt.Sprintf("%d", len(f)))
+
+				w.WriteStatusLine(response.OK)
+				w.WriteHeaders(h)
+				w.WriteBody(f)
+				return
+			}
+		} else if strings.HasPrefix(req.RequestLine.RequestTarget, "/httpbin") {
+			req, err := http.Get("https://httpbin.org/" + req.RequestLine.RequestTarget[len("/httpbin/"):])
+			if err != nil {
+				body = respond500()
+				status = response.InternalServerError
+			} else {
+				w.WriteStatusLine(response.OK)
+
+				h.Delete("Content-length")
+				h.Set("Transfer-encoding", "chunked")
+				h.Replace("Content-type", "text/plain")
+				h.Set("Trailer", "X-Content-SHA256")
+				h.Set("Trailer", "X-Content-Length")
+				w.WriteHeaders(h)
+
+				var body []byte
+				for {
+					data := make([]byte, 32)
+					n, err := req.Body.Read(data)
+					if n > 0 {
+						body = append(body, data[:n]...)
+						w.WriteChunkedBody(data[:n])
+					}
+					if err != nil {
+						break
+					}
+				}
+				w.WriteChunkedBodyDone()
+
+				hash := sha256.Sum256(body)
+				trailers := headers.NewHeaders()
+				trailers.Set("X-Content-SHA256", toStr(hash[:]))
+				trailers.Set("X-Content-Length", fmt.Sprint(len(body)))
+				w.WriteTrailers(trailers)
+				return
+			}
 		}
 
 		w.WriteStatusLine(status)
@@ -43,6 +98,14 @@ func main() {
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 	<-sigChan
 	log.Println("Server gracefully stopped")
+}
+
+func toStr(bytes []byte) string {
+	out := ""
+	for _, b := range bytes {
+		out += fmt.Sprintf("%02x", b)
+	}
+	return out
 }
 
 func respond400() []byte {

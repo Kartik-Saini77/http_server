@@ -58,10 +58,32 @@ func (w *Writer) WriteHeaders(headers headers.Headers) error {
 			return err
 		}
 	}
-	w.writer.Write([]byte("\r\n"))
-	return nil
+	_, err := w.writer.Write([]byte("\r\n"))
+	return err
 }
 
 func (w *Writer) WriteBody(p []byte) (int, error) {
 	return w.writer.Write(p)
+}
+
+func (w *Writer) WriteChunkedBody(p []byte) (int, error) {
+	size := fmt.Sprintf("%x\r\n", len(p))
+	body := size + string(p) + "\r\n"
+
+	return w.writer.Write([]byte(body))
+}
+
+func (w *Writer) WriteChunkedBodyDone() (int, error) {
+	return w.writer.Write([]byte("0\r\n"))
+}
+
+func (w *Writer) WriteTrailers(h headers.Headers) error {
+	for trailer, value := range h {
+		_, err := fmt.Fprintf(w.writer, "%s: %s\r\n", trailer, value)
+		if err != nil {
+			return err
+		}
+	}
+	_, err := w.writer.Write([]byte("\r\n"))
+	return err
 }
